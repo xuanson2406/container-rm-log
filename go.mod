@@ -2,11 +2,15 @@ module github.com/xuanson2406/s3
 
 go 1.19
 
-require github.com/minio/minio-go/v7 v7.0.49
+require (
+	github.com/aws/aws-sdk-go v1.44.222
+	github.com/minio/minio-go/v7 v7.0.49
+)
 
 require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.15.15 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.3 // indirect
