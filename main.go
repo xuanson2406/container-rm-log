@@ -1,115 +1,124 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io"
 	"log"
+	"os"
+	"time"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 )
 
 func main() {
 	ctx := context.Background()
-	endpoint := "s3-sgn09.fptcloud.com"
-	accessKeyID := "122b6c03649fc4b36723"
-	secretAccessKey := "FJm7hzvP63vaW4d0FOBeqMGA5HIDZSluzKieO4cx"
+	endpoint := "s3-hfx03.fptcloud.com"
+	accessKeyID := "VQNDG4HVO3GGV6P85YL2"
+	secretAccessKey := "uMhpUKfhC3SmhpN0tTJwLoE2YgjGcJ4yDaheVDvS"
 	useSSL := true
-	bucketName := "824032ee-7014-42e1-a27b-d23bc20fd08f"
+	// bucketName := "824032ee-7014-42e1-a27b-d23bc20fd08f"
 	// Initialize minio client object.
 	minioClient, err := minio.New(endpoint, &minio.Options{
 		Creds:  credentials.NewStaticV4(accessKeyID, secretAccessKey, ""),
 		Secure: useSSL,
-		Region: "us-east-1",
+		Region: "",
 	})
 	if err != nil {
 		log.Fatalln(err)
 	}
-	// log.Printf("S3: %#v\n", minioClient) // minioClient is now set up
-	// log.Printf("S3 region: %s", s3utils.GetRegionFromURL(*minioClient.EndpointURL()))
-	// location, _ := minioClient.GetBucketLocation(ctx, "test-backup-bucket")
-	// log.Printf("S3: %s\n", location)
-	// buckets, _ := minioClient.ListBuckets(ctx)
-	// for _, i := range buckets {
-	// 	log.Printf("bucket: %s \n", i.Name)
-	// }
-	// bool, err := minioClient.BucketExists(ctx, "stg-awx-util")
-	// if err == nil {
-	// 	log.Printf("%v", err)
-	// }
-	// if bool {
-	// 	log.Printf("True")
-	// } else {
-	// 	log.Printf("False")
-	// }
-	// err = minioClient.MakeBucket(ctx, "test-backup-bucket", minio.MakeBucketOptions{
-	// 	Region:        "us-east-1",
-	// 	ObjectLocking: false,
-	// })
-	// if err != nil {
-	// 	log.Printf("Error when creating backup bucket: %v", err)
-	// }
-	// storage, _ := minioClient.EndpointURL().Query().Del()
-	// log.Printf("policy: %s", storage)
-	// err = minioClient.RemoveBucket(ctx, "test-backup-bucket")
-	// if err != nil {
-	// 	log.Printf("Error when creating backup bucket: %v", err)
-	// }
-
-	// Open the file to be uploaded
-	// file, err := os.Open("/home/sondx/Downloads/iqbvjeh3-kubeconfig")
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// defer file.Close()
-
-	// // Get file info and size
-	// fileInfo, err := file.Stat()
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// fileSize := fileInfo.Size()
-	// minioClient.PutObject(ctx, "824032ee-7014-42e1-a27b-d23bc20fd08f", "test-kubeconfig/", nil, 0, minio.PutObjectOptions{})
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// Mở file và đọc dữ liệu vào một đối tượng kiểu io.Reader
-	// file, err := os.Open("/home/sondx/Downloads/100MB.bin")
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// defer file.Close()
-
-	// // Đọc dữ liệu từ file vào một byte array
-	// fileInfo, _ := file.Stat()
-	// fileSize := fileInfo.Size()
-	// buffer := make([]byte, fileSize)
-	// _, err = file.Read(buffer)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Println(fileSize)
-	// Đưa dữ liệu từ byte array vào một đối tượng kiểu bytes.Buffer
-	// reader := bytes.NewReader(buffer)
-
-	// err = minioClient.FGetObject(ctx, "test-backup-bucket", "test-kubeconfig", "/home/sondx/Downloads/test-download", minio.GetObjectOptions{})
-	// if err != nil {
-	// 	log.Fatalln(err)
-	// }
-	// minioClient.IN
-	// n, err := minioClient.PutObject(ctx, "test-backup-bucket", "file-test", reader, fileSize, minio.PutObjectOptions{})
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
-	// fmt.Println("Object uploaded successfully %d byte.", n)
-
-	object := minioClient.ListObjects(ctx, bucketName, minio.ListObjectsOptions{})
-	log.Printf("List object in bucket %s: \n", bucketName)
-	for k := range object {
-		log.Printf("Name: %s; CreatedOn: %s", k.Key, k.LastModified.Format("2006-01-02 15:04:05"))
+	time.Sleep(5 * time.Second)
+	// Load in-cluster Kubernetes configuration
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		panic(err.Error())
 	}
-	// minio.ListObjectsOptions
-	// arr := []string{"abc", "dasdad"}
-	// str := strings.Join(arr, "/")
-	// fmt.Printf(str)
 
+	// Create a new Kubernetes client using the provided config
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		panic(err.Error())
+	}
+	pods, err := clientset.CoreV1().Pods("kube-system").List(context.TODO(), metav1.ListOptions{LabelSelector: "app=kube-bench"})
+	if err != nil {
+		panic(err.Error())
+	}
+	if pods != nil {
+		for _, pod := range pods.Items {
+			podLogOptions := &corev1.PodLogOptions{
+				Container: "kube-bench",
+			}
+			podLogs, err := clientset.CoreV1().Pods("kube-system").GetLogs(pod.Name, podLogOptions).Stream(context.TODO())
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error opening stream to pod logs: %v\n", err)
+				os.Exit(1)
+			}
+			defer podLogs.Close()
+
+			// Open a file to write the logs
+			file, err := os.Create("/var/log/kube-bench/benchmark-clusterid.log")
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error creating log file: %v\n", err)
+				os.Exit(1)
+			}
+			defer file.Close()
+
+			// Copy pod logs to the file
+			_, err = io.Copy(file, podLogs)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error writing pod logs to file: %v\n", err)
+				os.Exit(1)
+			}
+
+			fmt.Println("Logs written to file successfully.")
+		}
+	}
+	// var log_file string
+	// files, err := os.ReadDir("/var/log/containers")
+	// if err != nil {
+	// 	fmt.Println("Error reading directory:", err)
+	// 	return
+	// }
+
+	// // Print the list of files
+	// fmt.Println("Files in directory:")
+	// for _, file := range files {
+	// 	if strings.Contains(file.Name(), "kube-bench-node-fptcloud") && !strings.Contains(file.Name(), "container-pushlog") {
+	// 		fmt.Println(file.Name())
+	// 		log_file = file.Name()
+	// 	}
+	// }
+	// Open the file to be uploaded
+	file, err := os.Open("/var/log/kube-bench/benchmark-clusterid.log")
+	if err != nil {
+		log.Fatalln("Can not open file: ", err)
+	}
+	defer file.Close()
+
+	// Get file info and size
+	fileInfo, err := file.Stat()
+	if err != nil {
+		log.Fatalln(err)
+	}
+	// // Đọc dữ liệu từ file vào một byte array
+	fileSize := fileInfo.Size()
+	buffer := make([]byte, fileSize)
+	_, err = file.Read(buffer)
+	if err != nil {
+		log.Fatal(err)
+	}
+	reader := bytes.NewReader(buffer)
+
+	// minioClient.IN
+	_, err = minioClient.PutObject(ctx, "1c7896b7-15ea-424d-9bda-89624019ded5", "file-test", reader, fileSize, minio.PutObjectOptions{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Printf("Object uploaded successfully")
 }
